@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+
+# 로컬 환경 — 사람마다 다르다
+.venv/
+.idea/
+
+# 실행 시 생성되는 A 산출물
+chart/db/
+chart/logs/
+chart/output/
+
+*.db
+*.db-wal
+*.db-shm
