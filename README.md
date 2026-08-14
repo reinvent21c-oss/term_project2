@@ -22,23 +22,37 @@ python main.py dashboard
 | CLI | 서브커맨드 **12개** (10개는 API 키 없이 동작) |
 | 저장소 | SQLite 테이블 5개 |
 | 시각화 | 대시보드 차트 **7종** (PNG) |
-| 자동 테스트 | A **58개** (직접 확인) · C 25개 (민규님 보고, 아래 11번 참고) |
+| 자동 테스트 | 저장소에 포함된 통합 테스트 **58개** |
 | 실측 | 리뷰 99건 · 감정 분석 99건 · 별점-감정 일치도 **81.8%** |
 
 ---
 
 ## 1. 팀 구성과 분업
 
-3인이 폴더 하나씩 맡습니다. **자기 폴더만 수정합니다.**
+3개 역할이 폴더 단위로 분리되어 있습니다. 각 역할은 자기 폴더를 중심으로 작업합니다.
 
-| 담당 | 폴더 | 범위 | 문서 |
+| 역할 | 폴더 | 범위 | 문서 |
 |---|---|---|---|
-| **A** 영휘 | `chart/` | DB · CLI · 집계 · 차트 · export · 전체 통합 | [chart/README.md](chart/README.md) |
-| **B** 세인 | `source/` | 수집 · 정제 | [source/README.md](source/README.md) |
-| **C** 민규 | `prompt/` | AI 감정 분석 · 인사이트 · 리포트 | [prompt/README.md](prompt/README.md) |
+| 애플리케이션 · DB · CLI · 시각화 | `chart/` | DB · CLI · 집계 · 차트 · export · 전체 통합 | [chart/README.md](chart/README.md) |
+| 데이터 수집 · 정제 | `source/` | 수집 · 정제 | [source/README.md](source/README.md) |
+| AI 분석 · 인사이트 · 리포트 | `prompt/` | AI 감정 분석 · 인사이트 · 리포트 | [prompt/README.md](prompt/README.md) |
 
 세 사람의 접점은 [INTERFACE.md](INTERFACE.md) 에 계약으로 적혀 있고,
 `chart/check_contract.py` 가 그 계약을 **실행해서** 확인합니다.
+
+### 개인 기여 범위 — AI 분석 · 인사이트 · 리포트 (팀 내 C 담당)
+
+이 저장소는 3인 팀 프로젝트의 결과물입니다. 그중 이 포트폴리오에서 개인 기여로
+구분하는 범위는 아래와 같습니다.
+
+- Gemini 기반 리뷰 감정 분석
+- 여러 리뷰의 batch 분석과 개별 실패 처리
+- AI 기반 긍정·부정 키워드, 요약 및 개선안 추출
+- 통계와 차트 경로를 받는 Markdown reporter
+- AI 분석 역할의 공개 인터페이스 합의와 관련 문서화
+
+DB·CLI·집계·차트·export·전체 통합과 수집·정제는 다른 팀원이 담당한 영역이며,
+개인 기여 범위에 포함하지 않습니다.
 
 ---
 
@@ -48,30 +62,30 @@ python main.py dashboard
 
 ```
         ┌─────────────┐
-        │  A  chart/  │  DB · CLI · 집계 · 차트 · 통합
+        │ chart/     │  애플리케이션 · DB · CLI · 시각화
         └──────┬──────┘
                │  bridge.py 한 곳에서만 호출
        ┌───────┴───────┐
        ▼               ▼
 ┌─────────────┐ ┌─────────────┐
-│  B source/  │ │  C prompt/  │
-│  수집·정제   │ │  AI·리포트   │
+│ source/     │ │ prompt/     │
+│ 데이터 수집·정제 │ │ AI 분석·리포트 │
 └─────────────┘ └─────────────┘
 ```
 
-**B와 C는 A를 import 하지 않습니다.** 그래서 두 사람이 A쪽 코드 없이
-자기 폴더만으로 개발하고 테스트할 수 있습니다.
+데이터 수집·정제와 AI 분석·리포트 모듈은 애플리케이션 모듈을 import 하지 않습니다.
+그래서 애플리케이션 코드 없이도 각 모듈을 독립적으로 개발하고 테스트할 수 있습니다.
 
 `main.py` 도 `source/` 나 `prompt/` 를 직접 import 하지 않습니다.
 전부 `chart/modules/bridge.py` 를 거칩니다.
 
-### B/C 폴더에 파일을 만들지 않습니다
+### 역할 경계 폴더에 파일을 만들지 않습니다
 
 `prompt/` 와 `source/src/` 에는 `__init__.py` 가 없어서 평범한 import 가 안 됩니다.
-A가 `__init__.py` 를 하나 넣으면 그 폴더는 더 이상 그 사람만의 것이 아니게 되고
+애플리케이션 모듈이 `__init__.py` 를 하나 넣으면 폴더의 소유 경계가 흐려지고
 머지 충돌이 시작됩니다.
 
-그래서 패키지 import 대신 **파일 경로로 직접 모듈을 읽는 로더**를 A쪽에 뒀습니다.
+그래서 패키지 import 대신 **파일 경로로 직접 모듈을 읽는 로더**를 애플리케이션 쪽에 뒀습니다.
 통합 테스트에 이 경계를 감시하는 항목도 있습니다.
 
 ### 숫자는 한 곳에서만 셉니다
@@ -97,12 +111,26 @@ A가 `__init__.py` 를 하나 넣으면 그 폴더는 더 이상 그 사람만�
 
 ## 3. 설치
 
+공통 설치:
+
 ```bash
 pip install -r chart/requirements.txt
-
-cp chart/.env.example chart/.env
-# .env 에 GEMINI_API_KEY 를 넣습니다. analyze / extract 는 키가 있어야 돕니다.
 ```
+
+macOS/Linux:
+
+```bash
+cp chart/.env.example chart/.env
+```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item chart/.env.example chart/.env
+```
+
+복사한 `chart/.env`의 `GEMINI_API_KEY` 예시값을 발급받은 키로 바꿉니다.
+`analyze`와 `extract`는 키가 있어야 동작하며, 실제 키는 커밋하지 않습니다.
 
 Python 3.9 이상. 의존성은 네 개뿐입니다 — `google-genai` · `python-dotenv` ·
 `matplotlib` · `openpyxl`. 뒤의 둘은 없어도 죽지 않습니다
@@ -115,18 +143,18 @@ Python 3.9 이상. 의존성은 네 개뿐입니다 — `google-genai` · `pytho
 ```bash
 # 1. 수집 + 정제 + DB 저장  (B 모듈 사용)
 python main.py import --file source/input/cosmetics_reviews_100.csv
-#    .xlsx 도 됩니다 — A가 CSV 로 눕혀 B에게 넘깁니다
+#    .xlsx 도 됩니다 — 애플리케이션이 CSV 로 변환한 뒤 수집 모듈에 전달합니다
 
-# 2. 감정 분석  (C 모듈 사용 · Gemini 호출)
+# 2. 감정 분석  (AI 분석 모듈 사용 · Gemini 호출)
 python main.py analyze --unanalyzed --limit 25
 
-# 3. AI 인사이트 추출  (C 모듈 사용 · Gemini 호출)
+# 3. AI 인사이트 추출  (AI 분석 모듈 사용 · Gemini 호출)
 python main.py extract
 
 # 4. 통계 · 경고 · 개선 우선순위 확인
 python main.py stats
 
-# 5. 대시보드 차트 + 종합 리포트  (A → C 전체 연결)
+# 5. 대시보드 차트 + 종합 리포트  (애플리케이션 → AI 리포트 전체 연결)
 python main.py dashboard
 ```
 
@@ -142,18 +170,18 @@ python main.py dashboard
 
 | 명령 | 하는 일 | 사용 모듈 | 키 |
 |---|---|---|---|
-| `import` | CSV·Excel → raw → 정제 → DB | B | |
-| `add` | 리뷰 1건 직접 추가 | A | |
-| `clean` | 원본 파일 없이 raw 재정제 | B | |
-| `analyze` | AI 감정 분석 → DB 저장 | C | 필요 |
-| `extract` | AI 키워드·요약·개선 제안 | C | 필요 |
-| `list` | 필터·정렬·페이지네이션 조회 | A | |
-| `show` | 리뷰 1건 상세 | A | |
-| `stats` | 통계 + 경고 + 개선 우선순위 | A | |
-| `dashboard` | 통계 + 차트 7종 + 리포트 | A→C | |
-| `export` | CSV/JSONL/XLSX 내보내기 | A | |
-| `review` | AI 결과 사람 검수 (표본 → 라벨 → 점수) | A | |
-| `status` | 저장소·모듈 현황 | A | |
+| `import` | CSV·Excel → raw → 정제 → DB | 데이터 수집·정제 | |
+| `add` | 리뷰 1건 직접 추가 | 애플리케이션 | |
+| `clean` | 원본 파일 없이 raw 재정제 | 데이터 수집·정제 | |
+| `analyze` | AI 감정 분석 → DB 저장 | AI 분석 | 필요 |
+| `extract` | AI 키워드·요약·개선 제안 | AI 인사이트 | 필요 |
+| `list` | 필터·정렬·페이지네이션 조회 | 애플리케이션 | |
+| `show` | 리뷰 1건 상세 | 애플리케이션 | |
+| `stats` | 통계 + 경고 + 개선 우선순위 | 애플리케이션 | |
+| `dashboard` | 통계 + 차트 7종 + 리포트 | 애플리케이션 · AI 리포트 | |
+| `export` | CSV/JSONL/XLSX 내보내기 | 애플리케이션 | |
+| `review` | AI 결과 사람 검수 (표본 → 라벨 → 점수) | 애플리케이션 | |
+| `status` | 저장소·모듈 현황 | 애플리케이션 | |
 
 주요 옵션
 
@@ -165,7 +193,7 @@ python main.py stats --skin-type 지성 --date-from 2025-01-01
 python main.py dashboard --no-charts
 python main.py export --format xlsx --rating-min 4
 python main.py review sample --size 30
-python main.py review load --file <검수완료.csv> --reviewer 영휘
+python main.py review load --file <검수완료.csv> --reviewer <검수자명>
 python main.py review score
 python main.py status
 ```
@@ -247,6 +275,18 @@ SQLite 파일 하나입니다. 기본 경로는 `chart/db/reviews.db` 이고,
 OneDrive·네트워크 드라이브 위에서 `disk I/O error` 가 나면
 `REVIEW_DB_PATH` 환경변수로 로컬 경로로 옮기세요.
 
+Windows PowerShell:
+
+```powershell
+$env:REVIEW_DB_PATH = "C:\temp\reviews.db"
+```
+
+macOS/Linux:
+
+```bash
+export REVIEW_DB_PATH=/tmp/reviews.db
+```
+
 ### `raw_reviews` — 원본 보관
 
 | 컬럼 | 설명 |
@@ -280,7 +320,7 @@ OneDrive·네트워크 드라이브 위에서 `disk I/O error` 가 나면
 | `review_id` | **UNIQUE.** `reviews.id` 참조. 리뷰 1건당 최신 1건 |
 | `sentiment` | `positive` / `negative` / `neutral` (CHECK 제약) |
 | `confidence` | **0.0~1.0** (CHECK 제약). 모델이 스스로 매긴 확신도 |
-| `language` | `ko` / `en`. 본문에 한글이 있는지로 A가 채움 |
+| `language` | `ko` / `en`. 본문에 한글이 있는지로 애플리케이션이 채움 |
 | `model` | 어느 모델로 분석했는지. 버전별 비교에 씀 |
 | `analyzed_at` | 분석 시각 |
 
@@ -324,16 +364,16 @@ AI 판정을 스냅샷으로 함께 두는 이유는, `analyses` 가 재분석 �
 
 각 파트의 설계 결정과 근거는 링크한 문서에 있습니다.
 
-### A · `chart/` — DB · CLI · 집계 · 대시보드 · 통합
+### 애플리케이션 · DB · CLI · 시각화 · `chart/`
 
 8,224줄 · 모듈 10개 · 함수 220개. SQLite 스키마와 저장·조회, 중복 판정 해시,
 6칸 통계 집계, 임계치 판정과 급증 감지, 대시보드 차트 7종, 세 형식 export,
-AI 검수와 프롬프트 A/B 비교, CLI 12개 명령, 그리고 B·C 를 이어 붙이는 창구와
+AI 검수와 프롬프트 버전 비교, CLI 12개 명령, 그리고 데이터·AI 모듈을 이어 붙이는 창구와
 계약 검증기.
 
 특징적인 결정 몇 가지:
 
-- **감정 분석에 별점을 넘기지 않습니다.** DB에서 13개 키를 읽지만 C에게는
+- **감정 분석에 별점을 넘기지 않습니다.** DB에서 13개 키를 읽지만 AI 분석 모듈에는
   `id` 와 `review_text` 두 개만 줍니다. 별점이 프롬프트에 들어가면
   '별점-감정 일치도' 가 항상 100% 가 되어 지표가 죽습니다. 실측 81.8%
 - **차트 색을 검증기로 골랐습니다.** 초록/회색 조합이 적록색약에서 ΔE 1.2 로
@@ -342,12 +382,12 @@ AI 검수와 프롬프트 A/B 비교, CLI 12개 명령, 그리고 B·C 를 이�
   `확인 후보` · `다음 지표` 로 이름을 나눴습니다. 판정과 동시에 로그에 남겨
   회차별 추이를 추적할 수 있습니다
 - **AI 정확도를 사람 라벨로 잽니다.** `review` 명령으로 표본을 뽑아 검수하고
-  일치율·혼동 방향·프롬프트 버전별 A/B 를 산출합니다. 프롬프트를 고치는 건
-  C 영역이라, A는 고칠 근거가 되는 숫자까지만 냅니다
+  일치율·혼동 방향·프롬프트 버전별 비교를 산출합니다. 프롬프트 개선은
+  AI 분석 역할이 맡고, 애플리케이션은 개선 근거가 되는 숫자까지만 냅니다
 
 → [chart/README.md](chart/README.md)
 
-### B · `source/` — 수집과 정제
+### 데이터 수집 · 정제 · `source/`
 
 229줄 · 파일 2개 · 함수 10개. **표준 라이브러리만** 씁니다.
 
@@ -358,7 +398,7 @@ CSV 를 `utf-8-sig` 로 읽어(Excel BOM 대응) 필수 5컬럼을 확인하고,
 
 → [source/README.md](source/README.md)
 
-### C · `prompt/` — AI 감정 분석 · 인사이트 · 리포트
+### AI 분석 · 인사이트 · 리포트 · `prompt/`
 
 693줄 · 파일 3개. Gemini 호출과 결과 검증, Markdown 리포트 생성.
 
@@ -375,15 +415,15 @@ CSV 를 `utf-8-sig` 로 읽어(Excel BOM 대응) 필수 5컬럼을 확인하고,
 
 ## 9. 통합 계약
 
-세 사람이 주고받는 것은 **함수 다섯 개**가 전부입니다.
-전문은 [INTERFACE.md](INTERFACE.md), C 담당이 볼 요약은 [C_인터페이스.md](C_인터페이스.md).
+역할 간에 주고받는 것은 **함수 다섯 개**가 전부입니다.
+전문은 [INTERFACE.md](INTERFACE.md), AI 분석 역할을 위한 요약은 [C_인터페이스.md](C_인터페이스.md)에 있습니다.
 
 ```python
-# B → A
+# 데이터 수집·정제 → 애플리케이션
 import_reviews(file_path, output_path) -> list[dict]
 clean_reviews(input_path, output_path) -> list[dict]   # 5키 · rating 은 int
 
-# A → C → A
+# 애플리케이션 → AI 분석·리포트 → 애플리케이션
 analyze_reviews([{id, review_text}])
     -> {"results": [{id, sentiment, confidence}], "failed_ids": [int]}
 
@@ -409,19 +449,19 @@ generate_markdown_report(stats, insights, chart_paths, output_path) -> str
 
 ```
 CSV · Excel
- └─ [A] Excel 이면 첫 시트를 임시 CSV 로 변환
-     └─ [B] importer.import_reviews()   → source/raw/reviews.jsonl
-         └─ [A] save_raw()              → SQLite raw_reviews
- └─ [B] cleaner.clean_reviews()         → source/clean/reviews.jsonl
-     └─ [A] save_clean()                → SQLite reviews  (해시 중복 판정)
-         └─ [C] analyze_reviews()       → sentiment / confidence
-             └─ [A] 계약 검증 → save_sentiment_results()
-                 └─ [A] calculate_stats()   6칸
-                     ├─ [A] generate_charts()          → PNG 7장
-                     └─ [C] generate_markdown_report() → chart/output/report_*.md
+ └─ [애플리케이션] Excel 이면 첫 시트를 임시 CSV 로 변환
+     └─ [데이터 수집] importer.import_reviews()   → source/raw/reviews.jsonl
+         └─ [애플리케이션] save_raw()              → SQLite raw_reviews
+ └─ [데이터 정제] cleaner.clean_reviews()          → source/clean/reviews.jsonl
+     └─ [애플리케이션] save_clean()                → SQLite reviews  (해시 중복 판정)
+         └─ [AI 분석] analyze_reviews()            → sentiment / confidence
+             └─ [애플리케이션] 계약 검증 → save_sentiment_results()
+                 └─ [애플리케이션] calculate_stats()   6칸
+                     ├─ [애플리케이션] generate_charts()          → PNG 7장
+                     └─ [AI 리포트] generate_markdown_report() → chart/output/report_*.md
 ```
 
-차트 경로는 A가 **리포트 파일 기준 상대경로**로 바꿔 C에게 넘깁니다.
+차트 경로는 애플리케이션이 **리포트 파일 기준 상대경로**로 바꿔 AI 리포트 모듈에 넘깁니다.
 절대경로를 그대로 넣으면 만든 사람 PC 에서만 이미지가 보이고 GitHub 에서는 깨집니다.
 
 ---
@@ -429,15 +469,15 @@ CSV · Excel
 ## 11. 검증
 
 ```bash
-python chart/check_contract.py           # 계약 자가 점검 (B/C/A 전체)
-python chart/tests/test_integration.py   # A 통합 테스트 58개
+python chart/check_contract.py           # 역할 간 계약 자가 점검
+python chart/tests/test_integration.py   # 통합 테스트 58개
 python main.py review score              # AI 정확도 (사람 라벨 대비)
 ```
 
 **둘 다 API 키 없이 돕니다.** 분석 결과가 필요한 구간은 각 테스트 파일 안의
 대역이 대신합니다. 테스트 한 번에 과금되면 아무도 테스트를 안 돌리게 됩니다.
 
-### 자가 점검의 네 가지 표시
+### 계약 점검 표기 (역사적 참고)
 
 | 표시 | 뜻 |
 |---|---|
@@ -446,21 +486,21 @@ python main.py review score              # AI 정확도 (사람 라벨 대비)
 | `[SKIP]` | 아직 안 만듦. 실패로 치지 않음 |
 | `[TODO]` | 약속 위반이 아니라 **새로 부탁하는 것** |
 
-`[TODO]` 를 `[FAIL]` 과 섞지 않은 이유가 있습니다. 전달 조건이
-"자기 영역에 FAIL 없을 것" 이라, 새 요청이 빨간불로 뜨면 다 만든 사람도
-빨간불이 되고 그러면 진짜 `[FAIL]` 을 보고도 아무도 안 움직이게 됩니다.
+과거 팀 통합 과정에서는 구현된 계약 위반과 이후 개선 요청을 구분하기 위해
+`[FAIL]`과 `[TODO]`를 별도로 기록했습니다.
 
-### 2026-08-14 결과
+### 2026-08-14 팀 통합 점검 기록 (역사적 참고)
 
 | 영역 | 계약 점검 | 자동 테스트 |
 |---|---|---|
-| A 영휘 | `[OK]` 8 / 8 | 58개 통과 (직접 확인) |
-| B 세인 | `[OK]` 2 / 2 | 없음 |
-| C 민규 | `[OK]` 4 · `[FAIL]` 1 · `[TODO]` 3 | 25개 통과 (민규님 보고 · 아래 참고) |
+| 애플리케이션 · DB · CLI · 시각화 | `[OK]` 8 / 8 | 통합 테스트 58개 (현재 저장소 포함) |
+| 데이터 수집 · 정제 | `[OK]` 2 / 2 | 없음 |
+| AI 분석 · 인사이트 · 리포트 | `[OK]` 4 · `[FAIL]` 1 · `[TODO]` 3 | 현재 저장소에 없음 (과거 문서에 25개 통과 기록) |
 
-C의 단위 테스트 25개는 민규님 문서에 실행 결과가 적혀 있지만
-**`prompt/tests/` 폴더가 아직 레포에 올라오지 않아** 여기서 직접 돌려보지 못했습니다.
-계약 점검(`check_contract.py --c`)은 실제 `prompt/*.py` 를 불러 확인한 결과입니다.
+과거 팀 문서에는 AI 분석 단위 테스트 25개 통과 기록이 있으나, 해당 `prompt/tests/`는
+현재 저장소에 포함되어 있지 않습니다. 따라서 현재 저장소의 자동 테스트 수에는
+포함하지 않으며, C 계약은 `check_contract.py --c`가 실제 `prompt/*.py`를 불러
+확인합니다.
 
 end-to-end — 빈 DB → import(CSV·xlsx) → analyze → extract → stats →
 dashboard → export 전 구간 정상.
@@ -485,25 +525,24 @@ dashboard → export 전 구간 정상.
 review_dashboard/
 ├── main.py                     # 루트 런처 (python main.py)
 │
-├── source/                     # B(세인) 전용
+├── source/                     # 데이터 수집·정제
 │   ├── src/importer.py         #   CSV → raw JSONL
 │   ├── src/cleaner.py          #   raw → clean JSONL
-│   ├── input/  raw/  clean/    #   원본 CSV · B 산출물
+│   ├── input/  raw/  clean/    #   원본 CSV · 수집·정제 산출물
 │   └── README.md
 │
-├── prompt/                     # C(민규) 전용
+├── prompt/                     # AI 분석·인사이트·리포트
 │   ├── analyzer.py             #   Gemini 감정 분석
 │   ├── extractor.py            #   인사이트 추출
 │   ├── reporter.py             #   Markdown 리포트
 │   └── README.md
-│                               #   tests/ 는 아직 미커밋
 │
-├── chart/                      # A(영휘) 전용
-│   ├── main.py                 #   CLI 본체 (11개 명령)
+├── chart/                      # 애플리케이션·DB·CLI·시각화
+│   ├── main.py                 #   CLI 본체 (12개 명령)
 │   ├── config.json             #   설정 · 경고 임계치
 │   ├── check_contract.py       #   계약 자가 점검
 │   ├── modules/
-│   │   ├── paths.py            #   경로 해석 + B/C 모듈 로더
+│   │   ├── paths.py            #   경로 해석 + 외부 모듈 로더
 │   │   ├── bridge.py           #   외부 폴더 호출 창구 · Excel→CSV
 │   │   ├── database.py         #   SQLite + 중복 판정 해시
 │   │   ├── stats.py            #   집계 6칸 · 임계치 · 우선순위
@@ -511,42 +550,38 @@ review_dashboard/
 │   │   ├── exporter.py         #   csv / jsonl / xlsx
 │   │   ├── interfaces.py       #   계약 검증기
 │   │   ├── config.py  logger.py
-│   ├── tests/                  #   A 통합 테스트 43개
+│   ├── tests/                  #   통합 테스트 58개
 │   ├── db/  output/  logs/     #   실행 시 생성 (gitignore)
 │   └── README.md
 │
-├── INTERFACE.md                # 3인 공통 계약 (v5)
-└── C_인터페이스.md              # C 담당이 볼 명세만 추린 것
+├── INTERFACE.md                # 3인 공통 계약 (최신 개정 v6)
+└── C_인터페이스.md              # AI 분석 역할을 위한 인터페이스 요약
 ```
 
 ---
 
-## 13. 남은 항목
+## 13. 현재 알려진 제한사항과 후속 검토
 
-A·B 영역은 `[FAIL]` 이 없습니다. 아래는 C(민규) 영역이고,
-자세한 내용과 목표 마크다운은 [C_인터페이스.md](C_인터페이스.md) 6번에 있습니다.
-
-| 구분 | 내용 |
+| 항목 | 현재 제한사항 |
 |---|---|
-| `[FAIL]` | `validate_insight_result()` 가 `improvements` 를 2개 이상 요구 — 계약에 없는 조건. 모델이 1개만 준 날 `extract` 가 통째로 실패 |
-| `[TODO]` | 리포트가 `chart_paths` 의 키를 버리고 `차트 1~7` 로 번호를 매김 |
-| `[TODO]` | 리포트가 `stats["meta"]` 를 안 읽어 생성 시각·필터 범위가 없음 |
-| `[TODO]` | `product_name` 이 `None` 인 리뷰에서 문자열 `"None"` 이 찍힘 |
+| 인사이트 검증 | `validate_insight_result()`가 개선안을 2개 이상 요구합니다. 모델이 1개만 반환하면 `extract` 전체가 실패할 수 있습니다. |
+| 리포트 차트 제목 | `chart_paths`의 키를 사용하지 않아 차트가 `차트 1~7`로만 표시됩니다. |
+| 리포트 메타데이터 | `stats["meta"]`를 사용하지 않아 생성 시각과 필터 범위가 표시되지 않습니다. |
+| 선택 필드 표시 | `product_name`이 `None`인 경우 리포트에 문자열 `"None"`이 표시됩니다. |
 
-셋 다 A가 **이미 넘기고 있는 값**입니다. A쪽에서 더 보낼 것은 없고,
-쓸지 말지가 리포트를 만드는 쪽의 몫이라 `[TODO]` 로 뒀습니다.
+위 항목은 현재 제품의 기술적 제한사항입니다. 역할별 계약 점검의 과거 결과와는 별도로 관리합니다.
 
 그 밖에:
 
-- **`prompt/tests/` 가 레포에 없습니다.** 민규님 문서에는 25개 통과로 적혀 있는데
-  폴더가 커밋되지 않아 다른 사람이 돌려볼 수 없습니다. 커밋만 하면 됩니다
-- **B 영역 자동 테스트가 없습니다.** A 통합 테스트가 접점은 보고 있지만,
+- **AI 분석 단위 테스트는 현재 저장소에 포함되어 있지 않습니다.** 과거 문서의 25개 통과
+  기록은 참고 자료이며, 현재 재현 가능한 테스트 수에는 포함하지 않습니다
+- **데이터 수집·정제 단위 테스트가 없습니다.** 통합 테스트가 접점은 보고 있지만,
   정제 규칙 자체(경계값 4자/5자, 별점 0/1/5/6, 날짜 세 형식)는
-  B 영역 테스트로 두는 게 맞습니다. [source/README.md](source/README.md) 7번 표가
+  데이터 수집·정제 단위 테스트로 두는 게 맞습니다. [source/README.md](source/README.md) 7번 표가
   그대로 테스트 케이스가 됩니다
 - **날짜가 없으면 리뷰 전체가 버려집니다.** `review_date` 는 계약상 nullable 인데
   정제 단계에서 drop 합니다. 지금 데이터는 100건 전부 날짜가 정상이라 드러나지 않습니다
-- Gemini 가 503(과부하)을 내면 C가 배치를 반으로 쪼개 재시도하는데
+- Gemini 가 503(과부하)을 내면 AI 분석 모듈이 배치를 반으로 쪼개 재시도하는데
   **그 사이에 대기가 없습니다.** 실제로 99건 시도 중 뒤쪽 49건이 이렇게 실패했고,
   `analyze --unanalyzed --limit 25` 로 나눠 돌려 복구했습니다
 
