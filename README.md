@@ -22,7 +22,7 @@ python main.py dashboard
 | CLI | 서브커맨드 **12개** (10개는 API 키 없이 동작) |
 | 저장소 | SQLite 테이블 5개 |
 | 시각화 | 대시보드 차트 **7종** (PNG) |
-| 자동 테스트 | 저장소에 포함된 통합 테스트 **58개** |
+| 자동 테스트 | 저장소에 포함된 통합 테스트 **64개** (62 pass, 조건부 skip 2, fail/error 0) |
 | 실측 | 리뷰 99건 · 감정 분석 99건 · 별점-감정 일치도 **81.8%** |
 
 ---
@@ -477,7 +477,7 @@ CSV · Excel
 
 ```bash
 python chart/check_contract.py           # 역할 간 계약 자가 점검
-python chart/tests/test_integration.py   # 통합 테스트 58개
+python chart/tests/test_integration.py   # 통합 테스트 64개 (62 pass, 조건부 skip 2)
 python main.py review score              # AI 정확도 (사람 라벨 대비)
 ```
 
@@ -500,7 +500,7 @@ python main.py review score              # AI 정확도 (사람 라벨 대비)
 
 | 영역 | 계약 점검 | 자동 테스트 |
 |---|---|---|
-| 애플리케이션 · DB · CLI · 시각화 | `[OK]` 8 / 8 | 통합 테스트 58개 (현재 저장소 포함) |
+| 애플리케이션 · DB · CLI · 시각화 | `[OK]` 8 / 8 | 통합 테스트 64개 (62 pass, 조건부 skip 2) |
 | 데이터 수집 · 정제 | `[OK]` 2 / 2 | 없음 |
 | AI 분석 · 인사이트 · 리포트 | `[OK]` 4 · `[FAIL]` 1 · `[TODO]` 3 | 현재 저장소에 없음 (과거 문서에 25개 통과 기록) |
 
@@ -557,7 +557,7 @@ review_dashboard/
 │   │   ├── exporter.py         #   csv / jsonl / xlsx
 │   │   ├── interfaces.py       #   계약 검증기
 │   │   ├── config.py  logger.py
-│   ├── tests/                  #   통합 테스트 58개
+│   ├── tests/                  #   통합 테스트 64개
 │   ├── db/  output/  logs/     #   실행 시 생성 (gitignore)
 │   └── README.md
 │

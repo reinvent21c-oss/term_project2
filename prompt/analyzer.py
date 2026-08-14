@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -8,6 +9,7 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3.6-flash"
+RETRY_DELAY_SECONDS = 1.0
 
 ALLOWED_SENTIMENTS = {
     "positive",
@@ -317,6 +319,8 @@ def analyze_reviews(reviews, model_name=None):
             "두 그룹으로 나누어 다시 시도합니다: %s",
             error,
         )
+
+        time.sleep(RETRY_DELAY_SECONDS)
 
         midpoint = (len(valid_reviews) + 1) // 2
 

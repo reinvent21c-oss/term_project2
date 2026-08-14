@@ -377,6 +377,35 @@ class TestCContract(unittest.TestCase):
 
         self.assertEqual([call["model"] for call in calls], [analyzer.MODEL_NAME])
 
+    def test_analyzer_success_does_not_sleep(self):
+        """첫 배치가 성공하면 split retry와 대기가 발생하지 않는다."""
+
+        analyzer = bridge.analyzer()
+        original_batch = analyzer.analyze_review_batch
+        original_sleep = analyzer.time.sleep
+        sleeps = []
+
+        def succeeds(reviews, model_name=None):
+            return [{
+                "id": review["id"], "sentiment": "positive",
+                "confidence": 0.9,
+            } for review in reviews]
+
+        analyzer.analyze_review_batch = succeeds
+        analyzer.time.sleep = sleeps.append
+
+        try:
+            output = analyzer.analyze_reviews([
+                {"id": 1, "review_text": "좋아요 만족합니다"},
+            ])
+
+        finally:
+            analyzer.analyze_review_batch = original_batch
+            analyzer.time.sleep = original_sleep
+
+        self.assertEqual(output["failed_ids"], [])
+        self.assertEqual(sleeps, [])
+
     def test_extractor_explicit_model_reaches_gemini(self):
         """명시한 모델명이 실제 Gemini 인사이트 호출까지 전달되는지 확인한다."""
 
@@ -395,7 +424,10 @@ class TestCContract(unittest.TestCase):
                 })()
 
         original = extractor.genai.Client
+        original_sleep = extractor.time.sleep
+        sleeps = []
         extractor.genai.Client = FakeClient
+        extractor.time.sleep = sleeps.append
 
         try:
             extractor.extract_insights(
@@ -404,8 +436,48 @@ class TestCContract(unittest.TestCase):
 
         finally:
             extractor.genai.Client = original
+            extractor.time.sleep = original_sleep
 
         self.assertEqual([call["model"] for call in calls], ["test-model"])
+        self.assertEqual(sleeps, [])
+
+    def test_extractor_retry_sleeps_once(self):
+        """첫 인사이트 요청 실패 뒤에만 기존 재시도 전 대기한다."""
+
+        extractor = bridge.extractor()
+        calls = []
+        sleeps = []
+
+        class FakeClient:
+            @property
+            def models(self):
+                return self
+
+            def generate_content(self, **kwargs):
+                calls.append(kwargs)
+
+                if len(calls) == 1:
+                    raise RuntimeError("temporary failure")
+
+                return type("Response", (), {
+                    "text": json.dumps(STUB_INSIGHTS)
+                })()
+
+        original = extractor.genai.Client
+        original_sleep = extractor.time.sleep
+        extractor.genai.Client = FakeClient
+        extractor.time.sleep = sleeps.append
+
+        try:
+            insights = extractor.extract_insights(["좋아요 만족합니다"])
+
+        finally:
+            extractor.genai.Client = original
+            extractor.time.sleep = original_sleep
+
+        self.assertEqual(insights, STUB_INSIGHTS)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(sleeps, [extractor.RETRY_DELAY_SECONDS])
 
     def test_missing_id_is_a_caller_bug(self):
         """
@@ -436,7 +508,9 @@ class TestCContract(unittest.TestCase):
 
         analyzer = bridge.analyzer()
         original = analyzer.analyze_review_batch
+        original_sleep = analyzer.time.sleep
         calls = []
+        sleeps = []
 
         def flaky(reviews, model_name=None):
             calls.append((len(reviews), model_name))
@@ -451,6 +525,7 @@ class TestCContract(unittest.TestCase):
             ]
 
         analyzer.analyze_review_batch = flaky
+        analyzer.time.sleep = sleeps.append
 
         try:
             output = analyzer.analyze_reviews([
@@ -461,6 +536,7 @@ class TestCContract(unittest.TestCase):
 
         finally:
             analyzer.analyze_review_batch = original
+            analyzer.time.sleep = original_sleep
 
         self.assertEqual(output["failed_ids"], [])
         self.assertEqual(
@@ -471,6 +547,8 @@ class TestCContract(unittest.TestCase):
             all(model_name == "retry-model" for _, model_name in calls),
             "분할 재시도에서 모델명이 유지되지 않았습니다.",
         )
+
+        self.assertEqual(sleeps, [analyzer.RETRY_DELAY_SECONDS])
 
     def test_total_failure_accounts_for_every_id(self):
         """

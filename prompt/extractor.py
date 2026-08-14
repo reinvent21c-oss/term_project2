@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -8,6 +9,7 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 MODEL_NAME = "gemini-3.6-flash"
+RETRY_DELAY_SECONDS = 1.0
 
 load_dotenv()
 
@@ -141,6 +143,7 @@ def extract_insights(reviews, model_name=None):
                     "Gemini 인사이트 추출 실패. 1회 재시도합니다: %s",
                     error,
                 )
+                time.sleep(RETRY_DELAY_SECONDS)
             else:
                 logger.error(
                     "Gemini 인사이트 추출이 재시도 후에도 실패했습니다: %s",
