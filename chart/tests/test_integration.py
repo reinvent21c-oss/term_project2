@@ -515,6 +515,33 @@ class TestCContract(unittest.TestCase):
         with self.assertRaises(ValueError):
             extractor.extract_insights(["정상 리뷰", "   "])
 
+    def test_insight_improvements_contract(self):
+        """개선 제안은 서로 다른 비어 있지 않은 문자열 2개 이상이어야 한다."""
+
+        validate = bridge.extractor().validate_insight_result
+        base = {
+            "positive_keywords": ["보습"],
+            "negative_keywords": [],
+            "summary": "요약",
+        }
+
+        valid = {**base, "improvements": ["개선안 1", "개선안 2"]}
+        self.assertEqual(validate(valid), valid)
+
+        invalid_improvements = (
+            ["개선안 1"],
+            [1, 2],
+            ["", "개선안 2"],
+            ["   ", "개선안 2"],
+            ["개선안 1", "개선안 1"],
+            ["개선안 1", "  개선안 1  "],
+        )
+
+        for improvements in invalid_improvements:
+            with self.subTest(improvements=improvements):
+                with self.assertRaises(ValueError):
+                    validate({**base, "improvements": improvements})
+
     def test_rating_never_reaches_c(self):
         """
         ★ payload 에 rating 이 섞이지 않는다.

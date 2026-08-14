@@ -448,7 +448,10 @@ def check_c():
                     "positive_keywords": ["보습"],
                     "negative_keywords": [],
                     "summary": "요약",
-                    "improvements": ["가벼운 제형 검토"],
+                    "improvements": [
+                        "가벼운 제형 검토",
+                        "흡수감 개선 검토",
+                    ],
                 })
 
             except Exception as error:

@@ -35,11 +35,24 @@ def validate_insight_result(result):
     if not isinstance(result["summary"], str):
         raise ValueError("summary는 문자열이어야 합니다.")
 
-    if not isinstance(result["improvements"], list):
+    improvements = result["improvements"]
+
+    if not isinstance(improvements, list):
         raise ValueError("improvements는 리스트여야 합니다.")
 
-    if len(result["improvements"]) < 2:
+    if len(improvements) < 2:
         raise ValueError("improvements는 2개 이상이어야 합니다.")
+
+    if not all(isinstance(item, str) for item in improvements):
+        raise ValueError("improvements의 모든 항목은 문자열이어야 합니다.")
+
+    normalized_improvements = [item.strip() for item in improvements]
+
+    if not all(normalized_improvements):
+        raise ValueError("improvements에는 빈 문자열을 포함할 수 없습니다.")
+
+    if len(set(normalized_improvements)) < 2:
+        raise ValueError("improvements는 서로 다른 내용 2개 이상이어야 합니다.")
 
     return result
 
