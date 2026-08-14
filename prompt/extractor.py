@@ -43,7 +43,7 @@ def validate_insight_result(result):
 
     return result
 
-def extract_insights(reviews):
+def extract_insights(reviews, model_name=None):
     if not isinstance(reviews, list) or not reviews:
         raise ValueError("reviews는 하나 이상의 리뷰가 포함된 리스트여야 합니다.")
 
@@ -51,6 +51,7 @@ def extract_insights(reviews):
         if not isinstance(review, str) or not review.strip():
             raise ValueError("각 리뷰는 비어 있지 않은 문자열이어야 합니다.")
 
+    effective_model = model_name or MODEL_NAME
     client = genai.Client()
 
     review_text = "\n".join(
@@ -84,7 +85,7 @@ def extract_insights(reviews):
     for attempt in range(max_attempts):
         try:
             response = client.models.generate_content(
-                model=MODEL_NAME,
+                model=effective_model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",

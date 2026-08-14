@@ -312,6 +312,101 @@ class TestBIntegration(unittest.TestCase):
 
 class TestCContract(unittest.TestCase):
 
+    def test_analyzer_explicit_model_reaches_gemini(self):
+        """명시한 모델명이 실제 Gemini batch 호출까지 전달되는지 확인한다."""
+
+        analyzer = bridge.analyzer()
+        calls = []
+
+        class FakeClient:
+            @property
+            def models(self):
+                return self
+
+            def generate_content(self, **kwargs):
+                calls.append(kwargs)
+                return type("Response", (), {
+                    "text": json.dumps({"results": [{
+                        "id": 1, "sentiment": "positive", "confidence": 0.9,
+                    }]})
+                })()
+
+        original = analyzer.genai.Client
+        analyzer.genai.Client = FakeClient
+
+        try:
+            analyzer.analyze_review_batch(
+                [{"id": 1, "review_text": "좋아요 만족합니다"}],
+                model_name="test-model",
+            )
+
+        finally:
+            analyzer.genai.Client = original
+
+        self.assertEqual([call["model"] for call in calls], ["test-model"])
+
+    def test_analyzer_model_falls_back_to_default(self):
+        """모델명을 생략하면 기존 MODEL_NAME을 사용한다."""
+
+        analyzer = bridge.analyzer()
+        calls = []
+
+        class FakeClient:
+            @property
+            def models(self):
+                return self
+
+            def generate_content(self, **kwargs):
+                calls.append(kwargs)
+                return type("Response", (), {
+                    "text": json.dumps({"results": [{
+                        "id": 1, "sentiment": "positive", "confidence": 0.9,
+                    }]})
+                })()
+
+        original = analyzer.genai.Client
+        analyzer.genai.Client = FakeClient
+
+        try:
+            analyzer.analyze_review_batch([
+                {"id": 1, "review_text": "좋아요 만족합니다"},
+            ])
+
+        finally:
+            analyzer.genai.Client = original
+
+        self.assertEqual([call["model"] for call in calls], [analyzer.MODEL_NAME])
+
+    def test_extractor_explicit_model_reaches_gemini(self):
+        """명시한 모델명이 실제 Gemini 인사이트 호출까지 전달되는지 확인한다."""
+
+        extractor = bridge.extractor()
+        calls = []
+
+        class FakeClient:
+            @property
+            def models(self):
+                return self
+
+            def generate_content(self, **kwargs):
+                calls.append(kwargs)
+                return type("Response", (), {
+                    "text": json.dumps(STUB_INSIGHTS)
+                })()
+
+        original = extractor.genai.Client
+        extractor.genai.Client = FakeClient
+
+        try:
+            extractor.extract_insights(
+                ["좋아요 만족합니다"], model_name="test-model"
+            )
+
+        finally:
+            extractor.genai.Client = original
+
+        self.assertEqual([call["model"] for call in calls], ["test-model"])
+
     def test_missing_id_is_a_caller_bug(self):
         """
         id 가 없는 건 '이 리뷰의 실패' 가 아니라 부르는 쪽의 버그다.
@@ -343,8 +438,8 @@ class TestCContract(unittest.TestCase):
         original = analyzer.analyze_review_batch
         calls = []
 
-        def flaky(reviews):
-            calls.append(len(reviews))
+        def flaky(reviews, model_name=None):
+            calls.append((len(reviews), model_name))
 
             if len(calls) == 1:
                 raise RuntimeError("첫 배치 실패")
@@ -362,7 +457,7 @@ class TestCContract(unittest.TestCase):
                 {"id": 1, "review_text": "좋아요 만족합니다"},
                 {"id": 2, "review_text": "그럭저럭입니다"},
                 {"id": 3, "review_text": "부드럽고 촉촉해요"},
-            ])
+            ], model_name="retry-model")
 
         finally:
             analyzer.analyze_review_batch = original
@@ -372,6 +467,10 @@ class TestCContract(unittest.TestCase):
             sorted(item["id"] for item in output["results"]), [1, 2, 3]
         )
         self.assertGreater(len(calls), 1, "반으로 쪼개 다시 부르지 않았습니다.")
+        self.assertTrue(
+            all(model_name == "retry-model" for _, model_name in calls),
+            "분할 재시도에서 모델명이 유지되지 않았습니다.",
+        )
 
     def test_total_failure_accounts_for_every_id(self):
         """
@@ -382,7 +481,7 @@ class TestCContract(unittest.TestCase):
         analyzer = bridge.analyzer()
         original = analyzer.analyze_review_batch
 
-        def always_fails(reviews):
+        def always_fails(reviews, model_name=None):
             raise RuntimeError("계속 실패")
 
         analyzer.analyze_review_batch = always_fails

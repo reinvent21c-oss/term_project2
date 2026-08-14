@@ -84,10 +84,11 @@ def validate_batch_analysis_result(result, expected_ids):
 
     return batch_results
 
-def analyze_review(review_text):
+def analyze_review(review_text, model_name=None):
     if not isinstance(review_text, str) or not review_text.strip():
         raise ValueError("review_text는 비어 있지 않은 문자열이어야 합니다.")
-    
+
+    effective_model = model_name or MODEL_NAME
     client = genai.Client()
 
     prompt = f"""
@@ -121,7 +122,7 @@ def analyze_review(review_text):
     for attempt in range(max_attempts):
         try:
             response = client.models.generate_content(
-                model=MODEL_NAME,
+                model=effective_model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -167,12 +168,13 @@ def analyze_review(review_text):
                 )
                 raise
 
-def analyze_review_batch(reviews):
+def analyze_review_batch(reviews, model_name=None):
     """여러 리뷰를 Gemini 한 번의 요청으로 감정 분석한다."""
 
     if not reviews:
         return []
 
+    effective_model = model_name or MODEL_NAME
     client = genai.Client()
 
     expected_ids = [
@@ -216,7 +218,7 @@ confidence는 각 감정 분류에 대한 확신 정도를
 """
 
     response = client.models.generate_content(
-        model=MODEL_NAME,
+        model=effective_model,
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -267,12 +269,13 @@ confidence는 각 감정 분류에 대한 확신 정도를
         expected_ids,
     )
 
-def analyze_reviews(reviews):
+def analyze_reviews(reviews, model_name=None):
     """전체 리뷰를 한 번에 분석하고 실패 시 절반으로 나눠 재시도한다."""
 
     if not isinstance(reviews, list):
         raise TypeError("reviews는 리스트여야 합니다.")
 
+    effective_model = model_name or MODEL_NAME
     valid_reviews = []
     results = []
     failed_ids = []
@@ -303,7 +306,9 @@ def analyze_reviews(reviews):
 
     try:
         # 1차: 유효한 리뷰 전체를 Gemini 한 번으로 분석
-        batch_results = analyze_review_batch(valid_reviews)
+        batch_results = analyze_review_batch(
+            valid_reviews, model_name=effective_model
+        )
         results.extend(batch_results)
 
     except Exception as error:
@@ -325,7 +330,9 @@ def analyze_reviews(reviews):
                 continue
 
             try:
-                batch_results = analyze_review_batch(batch)
+                batch_results = analyze_review_batch(
+                    batch, model_name=effective_model
+                )
                 results.extend(batch_results)
 
             except Exception as batch_error:

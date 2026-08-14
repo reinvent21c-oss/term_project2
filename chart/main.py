@@ -505,9 +505,12 @@ def cmd_analyze(args, config):
         {"id": review["id"], "review_text": review["review_text"]}
         for review in reviews
     ]
+    model_name = config["ai"]["model"]
 
     try:
-        output = bridge.analyzer().analyze_reviews(payload)
+        output = bridge.analyzer().analyze_reviews(
+            payload, model_name=model_name
+        )
 
     except (ModuleNotProvided, TypeError, ValueError) as error:
         logger.error("%s", error)
@@ -532,7 +535,7 @@ def cmd_analyze(args, config):
 
     # ---- A: 저장 ----
     saved = save_sentiment_results(
-        output["results"], model=config["ai"]["model"]
+        output["results"], model=model_name
     )
 
     failed = len(output["failed_ids"])
@@ -618,8 +621,12 @@ def cmd_extract(args, config):
         )
         texts = texts[:cap]
 
+    model_name = config["ai"]["model"]
+
     try:
-        insights = bridge.extractor().extract_insights(texts)
+        insights = bridge.extractor().extract_insights(
+            texts, model_name=model_name
+        )
 
     except (ModuleNotProvided, ValueError) as error:
         logger.error("%s", error)
@@ -656,7 +663,7 @@ def cmd_extract(args, config):
         scope=scope_json,
         review_count=len(reviews),
         data=insights,
-        model=config["ai"]["model"],
+        model=model_name,
     )
 
     logger.info("추출 완료 (extraction_id=%d)", extraction_id)
