@@ -37,7 +37,7 @@ python main.py dashboard
 | 데이터 수집 · 정제 | `source/` | 수집 · 정제 | [source/README.md](source/README.md) |
 | AI 분석 · 인사이트 · 리포트 | `prompt/` | AI 감정 분석 · 인사이트 · 리포트 | [prompt/README.md](prompt/README.md) |
 
-세 사람의 접점은 [INTERFACE.md](INTERFACE.md) 에 계약으로 적혀 있고,
+역할 간 접점은 [인터페이스 계약](docs/architecture/interface-contract.md)에 정리되어 있고,
 `chart/check_contract.py` 가 그 계약을 **실행해서** 확인합니다.
 
 ### 개인 기여 범위 — AI 분석 · 인사이트 · 리포트 (팀 내 C 담당)
@@ -53,6 +53,13 @@ python main.py dashboard
 
 DB·CLI·집계·차트·export·전체 통합과 수집·정제는 다른 팀원이 담당한 영역이며,
 개인 기여 범위에 포함하지 않습니다.
+
+### 문서 안내
+
+- [아키텍처 개요](docs/architecture/overview.md)
+- [인터페이스 계약](docs/architecture/interface-contract.md)
+- [테스트 가이드](docs/guides/testing.md)
+- [팀 개발 과정 archive](docs/archive/)
 
 ---
 
